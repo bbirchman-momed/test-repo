@@ -1,17 +1,25 @@
 # test-repo
 testing-creation
 
-docker ps -a --format "{{.Names}}: {{.Mounts}}" | grep "model-cache"
 
-# For the nextcloud volume
-docker run --rm -v nextcloud_aio_mastercontainer:/volume alpine sh -c \
-  "apk add --no-cache jq && \
-   echo '{\"Labels\": {\"com.docker.compose.project\": \"meridian-docker-suite\"}}' > /tmp/labels.json && \
-   cat /tmp/labels.json"
+# Stop relevant containers
+docker-compose stop nextcloud_aio_mastercontainer immich-machine-learning
 
-docker volume create --name temp_volume
-docker run --rm -v nextcloud_aio_mastercontainer:/from -v temp_volume:/to alpine cp -av /from/. /to/.
-docker volume rm nextcloud_aio_mastercontainer
-docker volume create --name nextcloud_aio_mastercontainer --label com.docker.compose.project=meridian-docker-suite
-docker run --rm -v temp_volume:/from -v nextcloud_aio_mastercontainer:/to alpine cp -av /from/. /to/.
-docker volume rm temp_volume
+# Create new volumes with correct project name
+docker volume create meridian-docker-suite_nextcloud_aio_mastercontainer
+docker volume create meridian-docker-suite_model-cache
+
+# Copy data from old volumes to new ones
+echo "Copying Nextcloud data (this may take a while)..."
+docker run --rm \
+  -v nextcloud_aio_mastercontainer:/source \
+  -v meridian-docker-suite_nextcloud_aio_mastercontainer:/destination \
+  alpine sh -c "cp -av /source/. /destination/"
+
+echo "Copying model-cache data (this may take a while)..."
+docker run --rm \
+  -v plex-docker-suite_model-cache:/source \
+  -v meridian-docker-suite_model-cache:/destination \
+  alpine sh -c "cp -av /source/. /destination/"
+
+echo "Volume data migration complete!"
